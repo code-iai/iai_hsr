@@ -26,9 +26,10 @@ def generate_launch_description():
         package='controller_manager',
         executable='spawner',
         arguments=[
-        'realtime_body_controller_real',
-        '--controller-manager', '/controller_manager',
-        '--ros-args', '--params-file', controller_yaml_file]
+            'realtime_body_controller_real',
+            '--controller-manager', '/controller_manager',
+            '--ros-args', '--params-file', controller_yaml_file
+        ],
         output='screen'
     )
 
