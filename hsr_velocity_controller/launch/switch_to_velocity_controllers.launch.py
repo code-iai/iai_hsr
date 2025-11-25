@@ -9,6 +9,15 @@ def generate_launch_description():
     get_package_share_directory('hsr_velocity_controller'),
     'config', 'my_controller_realtime_test.yaml'
 )
+
+    # ros2_control Node
+    load_params = Node(
+        package='controller_manager',
+        executable='ros2_control_node',
+        parameters=[controller_yaml_file],
+        output='screen'
+    )
+    
     # Unspawn existing trajectory controllers
     unspawn_controllers = Node(
         package='controller_manager',
