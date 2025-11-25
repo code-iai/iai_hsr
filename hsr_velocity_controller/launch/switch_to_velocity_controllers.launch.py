@@ -25,9 +25,11 @@ def generate_launch_description():
     velocity_controller_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['realtime_body_controller_real', '--controller-manager', '/controller_manager'],
-        output='screen',
-        parameters=[controller_yaml_file]
+        arguments=[
+        'realtime_body_controller_real',
+        '--controller-manager', '/controller_manager',
+        '--ros-args', '--params-file', controller_yaml_file]
+        output='screen'
     )
 
     return LaunchDescription([
