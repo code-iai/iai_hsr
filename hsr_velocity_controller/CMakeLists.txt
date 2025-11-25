@@ -29,6 +29,8 @@ install(FILES hsr_velocity_controller.xml
         DESTINATION share/${PROJECT_NAME}
 )
 
+ament_export_libraries(${PROJECT_NAME})
+
 # Export plugin description
 pluginlib_export_plugin_description_file(controller_interface hsr_velocity_controller.xml)
 
