@@ -111,10 +111,10 @@ public:
     filtered_vel_ = std::vector<double>(n_joints_, 0.0);
 
     sub_command_ = node->create_subscription<std_msgs::msg::Float64MultiArray>(
-      "command", rclcpp::SystemDefaultsQoS(),
+      "~/command", rclcpp::SystemDefaultsQoS(),
       std::bind(&HsrVelocityController::commandCB, this, std::placeholders::_1));
 
-    auto publisher = node->create_publisher<std_msgs::msg::Float64MultiArray>("controller_state", 1);
+    auto publisher = node->create_publisher<std_msgs::msg::Float64MultiArray>("~/controller_state", 1);
     pub_ = std::make_unique<realtime_tools::RealtimePublisher<std_msgs::msg::Float64MultiArray>>(publisher);
 
     // Load URDF for joint limits if robot_description is available
