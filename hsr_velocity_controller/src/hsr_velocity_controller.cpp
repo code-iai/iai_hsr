@@ -69,11 +69,22 @@ public:
       return false;
     };
 
-    node->declare_parameter("joints", std::vector<std::string>());
-    node->declare_parameter("p_gains", std::vector<double>());
-    node->declare_parameter("i_gains", std::vector<double>());
-    node->declare_parameter("d_gains", std::vector<double>());
-    node->declare_parameter("feedforward_gains", std::vector<double>());
+    // Declare parameters if they don't already exist (they might be loaded from YAML)
+    if (!node->has_parameter("joints")) {
+      node->declare_parameter("joints", std::vector<std::string>());
+    }
+    if (!node->has_parameter("p_gains")) {
+      node->declare_parameter("p_gains", std::vector<double>());
+    }
+    if (!node->has_parameter("i_gains")) {
+      node->declare_parameter("i_gains", std::vector<double>());
+    }
+    if (!node->has_parameter("d_gains")) {
+      node->declare_parameter("d_gains", std::vector<double>());
+    }
+    if (!node->has_parameter("feedforward_gains")) {
+      node->declare_parameter("feedforward_gains", std::vector<double>());
+    }
 
     rclcpp::Parameter joints_param;
     if (!get_param("joints", joints_param)) return controller_interface::CallbackReturn::ERROR;
@@ -106,14 +117,23 @@ public:
     auto publisher = node->create_publisher<std_msgs::msg::Float64MultiArray>("controller_state", 1);
     pub_ = std::make_unique<realtime_tools::RealtimePublisher<std_msgs::msg::Float64MultiArray>>(publisher);
 
-    urdf_ = std::make_shared<urdf::Model>();
-    if (!node->has_parameter("robot_description")) return controller_interface::CallbackReturn::ERROR;
-    std::string urdf_string = node->get_parameter("robot_description").as_string();
-    if (!urdf_->initString(urdf_string)) return controller_interface::CallbackReturn::ERROR;
-
+    // Load URDF for joint limits if robot_description is available
+    // This is optional - controller will work without joint limits
     joints_urdf_.resize(n_joints_);
-    for (size_t i = 0; i < n_joints_; i++)
-      joints_urdf_[i] = urdf_->getJoint(joint_names_[i]);
+    if (node->has_parameter("robot_description")) {
+      urdf_ = std::make_shared<urdf::Model>();
+      std::string urdf_string = node->get_parameter("robot_description").as_string();
+      if (urdf_->initString(urdf_string)) {
+        for (size_t i = 0; i < n_joints_; i++) {
+          joints_urdf_[i] = urdf_->getJoint(joint_names_[i]);
+        }
+        RCLCPP_INFO(node->get_logger(), "Loaded URDF with joint limits");
+      } else {
+        RCLCPP_WARN(node->get_logger(), "Failed to parse robot_description, continuing without joint limits");
+      }
+    } else {
+      RCLCPP_INFO(node->get_logger(), "No robot_description parameter, continuing without joint limits");
+    }
 
     counter = 0;
     return controller_interface::CallbackReturn::SUCCESS;
@@ -150,6 +170,8 @@ public:
         js_[i] = current_pos;
         old_integrator_[i] = 0.0;
         old_error_[i] = 0.0;
+        // Hold current position when velocity command is zero
+        command_interfaces_[i].set_value(js_[i]);
       } else {
         double error = vel_cmd - filtered_vel_[i];
         double new_integrator = old_integrator_[i] + error * dt;
@@ -158,11 +180,30 @@ public:
                           + new_integrator * i_gains_[i]
                           + d_gains_[i] / dt * (error - old_error_[i]);
 
-        if (joints_urdf_[i] && joints_urdf_[i]->limits)
-          next_pos = std::min(std::max(next_pos, joints_urdf_[i]->limits->lower),
-                              joints_urdf_[i]->limits->upper);
+        // Anti-windup: conditional integration based on saturation state
+        // Only update integrator when not saturated or when error is reducing
+        if (joints_urdf_[i] && joints_urdf_[i]->limits) {
+          if (next_pos > joints_urdf_[i]->limits->upper) {
+            next_pos = joints_urdf_[i]->limits->upper;
+            // Only integrate if error is negative (reducing saturation)
+            if (error < 0) {
+              old_integrator_[i] = new_integrator;
+            }
+          } else if (next_pos < joints_urdf_[i]->limits->lower) {
+            next_pos = joints_urdf_[i]->limits->lower;
+            // Only integrate if error is positive (reducing saturation)
+            if (error > 0) {
+              old_integrator_[i] = new_integrator;
+            }
+          } else {
+            // Not saturated, update integrator normally
+            old_integrator_[i] = new_integrator;
+          }
+        } else {
+          // No limits defined, update integrator normally
+          old_integrator_[i] = new_integrator;
+        }
 
-        old_integrator_[i] = new_integrator;
         command_interfaces_[i].set_value(next_pos);
         old_error_[i] = error;
       }

@@ -1,21 +1,13 @@
 import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import Command,LaunchConfiguration, PathJoinSubstitution, FindExecutable
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    controller_yaml_file = os.path.join(
-    get_package_share_directory('hsr_velocity_controller'),
-    'config', 'my_controller_realtime_test.yaml'
-)
-
-    # ros2_control Node
-    load_params = Node(
-        package='controller_manager',
-        executable='ros2_control_node',
-        parameters=[controller_yaml_file],
-        output='screen'
+    # Use controller-specific parameter file
+    controller_params = os.path.join(
+        get_package_share_directory('hsr_velocity_controller'),
+        'config', 'realtime_body_controller.yaml'
     )
     
     # Unspawn existing trajectory controllers
@@ -30,13 +22,15 @@ def generate_launch_description():
         output='screen',
     )
 
-    # Spawner for velocity controller
+    # Spawner for velocity controller with parameter file
     velocity_controller_spawner = Node(
         package='controller_manager',
         executable='spawner',
         arguments=[
             'realtime_body_controller_real',
-            '--controller-manager', '/controller_manager'
+            '--controller-manager', '/controller_manager',
+            '--param-file', controller_params,
+            '--controller-type', 'hsr_velocity_controller_ns/HsrVelocityController',
         ],
         output='screen'
     )
