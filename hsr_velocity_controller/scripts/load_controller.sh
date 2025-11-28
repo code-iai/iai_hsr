@@ -41,32 +41,29 @@ done
 echo "Controller manager is ready"
 
 # Check if controller already exists
-#if ros2 control list_controllers 2>/dev/null | grep -q "$CONTROLLER_NAME"; then
-#    echo "Controller '$CONTROLLER_NAME' already exists"
-#    echo "  Use 'ros2 control set_controller_state $CONTROLLER_NAME inactive' to deactivate"
-#    echo "  Or 'ros2 service call ${CONTROLLER_MANAGER}/unload_controller controller_manager_msgs/srv/UnloadController \"{name: '$CONTROLLER_NAME'}\"' to unload"
-#    exit 0
-#fi
+if ros2 control list_controllers 2>/dev/null | grep -q "$CONTROLLER_NAME"; then
+    CURRENT_STATE=$(ros2 control list_controllers 2>/dev/null | grep "$CONTROLLER_NAME" | awk '{print $NF}' | tr -d '[]')
+    echo "Controller '$CONTROLLER_NAME' already exists in state: $CURRENT_STATE"
+    echo "Skipping load. To reload, first unload with:"
+    echo "  ros2 service call ${CONTROLLER_MANAGER}/unload_controller controller_manager_msgs/srv/UnloadController \"{name: '$CONTROLLER_NAME'}\""
+    exit 0
+fi
 
-# Set controller type parameter
-echo "Setting controller type parameter..."
-ros2 param set $CONTROLLER_MANAGER ${CONTROLLER_NAME}.type $CONTROLLER_TYPE
-echo "Controller type set"
+# Load controller using spawner (loads, configures, but stays inactive)
+echo "Loading and configuring controller using spawner..."
+ros2 run controller_manager spawner \
+    $CONTROLLER_NAME \
+    --controller-manager $CONTROLLER_MANAGER \
+    --param-file $PARAM_FILE \
+    --controller-type $CONTROLLER_TYPE \
+    --inactive
 
-# Load parameters from file
-echo "Loading controller parameters..."
-ros2 param load $CONTROLLER_MANAGER $PARAM_FILE
-echo "Parameters loaded"
-
-# Load controller (this only loads, does not configure or activate)
-echo "Loading controller..."
-ros2 control load_controller $CONTROLLER_NAME
-echo "Controller loaded"
-
-# Configure controller (moves to 'inactive' state)
-echo "Configuring controller..."
-ros2 control set_controller_state $CONTROLLER_NAME configure
-echo "Controller configured and ready"
+if [ $? -eq 0 ]; then
+    echo "Controller loaded and configured successfully"
+else
+    echo "ERROR: Failed to load controller"
+    exit 1
+fi
 
 echo ""
 echo "=== Startup Complete ==="
@@ -74,9 +71,11 @@ echo "Controller '$CONTROLLER_NAME' is loaded and configured (inactive state)"
 echo ""
 echo "To activate remotely:"
 echo "  ros2 control set_controller_state $CONTROLLER_NAME active"
+echo "  OR: ./control_controller.sh activate"
 echo ""
 echo "To deactivate:"
 echo "  ros2 control set_controller_state $CONTROLLER_NAME inactive"
+echo "  OR: ./control_controller.sh deactivate"
 echo ""
 echo "To check status:"
 echo "  ros2 control list_controllers"
