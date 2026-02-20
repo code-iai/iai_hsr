@@ -167,7 +167,6 @@ public:
       filtered_vel_[i] = 0.95 * current_vel + 0.05 * filtered_vel_[i];
 
       if (vel_cmd == 0.0) {
-        js_[i] = current_pos;
         old_integrator_[i] = 0.0;
         old_error_[i] = 0.0;
         // Hold current position when velocity command is zero
@@ -206,6 +205,7 @@ public:
 
         command_interfaces_[i].set_value(next_pos);
         old_error_[i] = error;
+        js_[i] = current_pos;
       }
     }
 
