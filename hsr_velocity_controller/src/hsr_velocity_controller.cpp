@@ -120,9 +120,9 @@ public:
     // Load URDF for joint limits if robot_description is available
     // This is optional - controller will work without joint limits
     joints_urdf_.resize(n_joints_);
-    if (node->has_parameter("robot_description")) {
+    const std::string &urdf_string = get_robot_description();
+    if (!urdf_string.empty()) {
       urdf_ = std::make_shared<urdf::Model>();
-      std::string urdf_string = node->get_parameter("robot_description").as_string();
       if (urdf_->initString(urdf_string)) {
         for (size_t i = 0; i < n_joints_; i++) {
           joints_urdf_[i] = urdf_->getJoint(joint_names_[i]);
@@ -132,7 +132,7 @@ public:
         RCLCPP_WARN(node->get_logger(), "Failed to parse robot_description, continuing without joint limits");
       }
     } else {
-      RCLCPP_INFO(node->get_logger(), "No robot_description parameter, continuing without joint limits");
+      RCLCPP_INFO(node->get_logger(), "No robot_description available, continuing without joint limits");
     }
 
     counter = 0;

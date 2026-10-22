@@ -36,9 +36,10 @@ TEST(TestLoadHsrVelocityController, load_controller)
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
 
   controller_manager::ControllerManager cm(
-    std::make_unique<hardware_interface::ResourceManager>(
-      ros2_control_test_assets::minimal_robot_urdf),
-    executor, "test_controller_manager");
+    executor, ros2_control_test_assets::minimal_robot_urdf, true, "test_controller_manager");
+
+  // Controller nodes ignore the global --params-file; pass it per controller
+  cm.set_parameter(rclcpp::Parameter("test_hsr_velocity_controller.params_file", test_file_path));
 
   ASSERT_NE(
     cm.load_controller(
