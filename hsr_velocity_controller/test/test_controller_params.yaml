@@ -1,0 +1,28 @@
+test_hsr_velocity_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+    p_gains: [1.0, 1.0]
+    i_gains: [0.0, 0.0]
+    d_gains: [0.0, 0.0]
+    feedforward_gains: [1.0, 1.0]
+    robot_description: |
+      <?xml version="1.0"?>
+      <robot name="test_robot">
+        <link name="base_link"/>
+        <link name="link1"/>
+        <link name="link2"/>      
+        <joint name="joint1" type="revolute">
+          <parent link="base_link"/>
+          <child link="link1"/>
+          <axis xyz="0 0 1"/>
+          <limit lower="-3.14" upper="3.14" effort="100" velocity="1.0"/>
+        </joint>
+        <joint name="joint2" type="revolute">
+          <parent link="link1"/>
+          <child link="link2"/>
+          <axis xyz="0 0 1"/>
+          <limit lower="-3.14" upper="3.14" effort="100" velocity="1.0"/>
+        </joint>
+      </robot>
