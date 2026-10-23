@@ -11,11 +11,13 @@ CONTROLLER_TYPE="hsr_velocity_controller_ns/HsrVelocityController"
 CONTROLLER_MANAGER="/controller_manager"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source ROS2 and workspace
-#source /opt/ros/humble/setup.bash
-if [ -d "~/custom_controller_ws/install/setup.bash" ]; then
-    source ~/custom_controller_ws/install/setup.bash
-fi
+# Source the workspace (robot: /home/custom_ws, remote PC: ~/custom_controller_ws)
+for WS in /home/custom_ws "$HOME/custom_controller_ws"; do
+    if [ -f "$WS/install/setup.bash" ]; then
+        source "$WS/install/setup.bash"
+        break
+    fi
+done
 
 # Get parameter file path
 PARAM_FILE=$(ros2 pkg prefix hsr_velocity_controller)/share/hsr_velocity_controller/config/realtime_body_controller.yaml
@@ -49,13 +51,16 @@ if ros2 control list_controllers 2>/dev/null | grep -q "$CONTROLLER_NAME"; then
     exit 0
 fi
 
+# The Jazzy spawner has no --controller-type option, so set the type on the controller manager directly
+ros2 param set $CONTROLLER_MANAGER ${CONTROLLER_NAME}.type $CONTROLLER_TYPE
+
 # Load controller using spawner (loads, configures, but stays inactive)
+# The param file is read by the controller manager, so this script must run on the robot
 echo "Loading and configuring controller using spawner..."
 ros2 run controller_manager spawner \
     $CONTROLLER_NAME \
     --controller-manager $CONTROLLER_MANAGER \
     --param-file $PARAM_FILE \
-    --controller-type $CONTROLLER_TYPE \
     --inactive
 
 if [ $? -eq 0 ]; then
@@ -69,13 +74,11 @@ echo ""
 echo "=== Startup Complete ==="
 echo "Controller '$CONTROLLER_NAME' is loaded and configured (inactive state)"
 echo ""
-echo "To activate remotely:"
-echo "  ros2 control set_controller_state $CONTROLLER_NAME active"
-echo "  OR: ./control_controller.sh activate"
+echo "To switch to the velocity controller (also works from a remote PC):"
+echo "  ./switch_controller.sh velocity"
 echo ""
-echo "To deactivate:"
-echo "  ros2 control set_controller_state $CONTROLLER_NAME inactive"
-echo "  OR: ./control_controller.sh deactivate"
+echo "To switch back to the trajectory controllers:"
+echo "  ./switch_controller.sh trajectory"
 echo ""
 echo "To check status:"
 echo "  ros2 control list_controllers"
